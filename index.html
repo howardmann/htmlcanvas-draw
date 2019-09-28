@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="minimal-ui, width = device-width, initial-scale = 1.0, minimum-scale = 1, maximum-scale = 1, user-scalable = no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+  <title>Document</title>
+  <style>
+    #canvas {
+      border: 1px solid black;
+    }
+  </style>
+</head>
+
+<body>
+  <button id="clear">Clear</button>
+  <button id="blue">Blue</button>
+  <button id="red">Red</button>
+  <input type="file" id="imageLoader" name="imageLoader">
+  <button id="remove-image">Remove Image</button>
+  <br>
+  <canvas id="canvas" width="500" height="500"></canvas>
+
+  <!-- TODO FIX MOBILE IMAGE UPLOAD ORIENTATION  -->
+  <!-- https://medium.com/wassa/handle-image-rotation-on-mobile-266b7bd5a1e6 -->
+  <script>
+    // ========= Simple Template
+    let canvas = document.getElementById('canvas')
+    let ctx = canvas.getContext('2d')
+
+    // When true, moving the mouse draws on the canvas
+    let isDrawing = false
+    // Global to keep track of lastXY draw coordinates (where drawing ends)
+    let lastXY = {
+      x: null,
+      y: null
+    }
+
+    // Helper function to get current x y coordinates within canvas from event
+    let makeGetMousePos = (canvasEl) =>
+      (e) => {
+        let rect = canvasEl.getBoundingClientRect()
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+      }
+
+
+    // Get touch pos 
+    let makeGetTouchPos = (canvasEl) =>
+      (e) => {
+        let rect = canvasEl.getBoundingClientRect()
+        return {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top
+        }
+      }
+
+    // Draw line between starting and ending xy coordinates
+    let makeDrawLine = (ctx, color = 'red') =>
+      ({
+        startXY,
+        endXY
+      }) => {
+        // get start coordinates
+        let startX = startXY.x
+        let startY = startXY.y
+
+        // get end coodinates
+        let endX = endXY.x
+        let endY = endXY.y
+
+        // Settings
+        ctx.strokeStyle = color
+        ctx.lineWidth = 3
+
+        // Canvas line API
+        ctx.beginPath()
+        ctx.moveTo(startX, startY)
+        ctx.lineTo(endX, endY)
+        ctx.stroke()
+        ctx.closePath
+      }
+
+    // Pass relevant canvas and context
+    let getCurrentXY = makeGetMousePos(canvas)
+    let getTouchXY = makeGetTouchPos(canvas)
+    let drawLine = makeDrawLine(ctx)
+
+    // Mouse event listeners
+
+    // Sets the starting coordinates to draw
+    canvas.addEventListener('mousedown', e => {
+      // update lastXY (starting coordinates) from mousedown point
+      lastXY = getCurrentXY(e)
+      // enable mousemove to draw line
+      isDrawing = true
+    })
+
+    // Draws line between mousedown XY and current mouse move
+    canvas.addEventListener('mousemove', e => {
+      if (isDrawing) {
+        // Start from lastXY (based on mousedown marker)
+        let startX = lastXY.x
+        let startY = lastXY.y
+        // End coord current mouse position
+        let {
+          x,
+          y
+        } = getCurrentXY(e)
+        let endX = x
+        let endY = y
+
+        // Draw line from between lastXY and currentXY
+        drawLine({
+          startXY: {
+            x: startX,
+            y: startY
+          },
+          endXY: {
+            x: endX,
+            y: endY
+          }
+        })
+
+        // Reset end of draw line to continue drawing from the line
+        lastXY.x = endX
+        lastXY.y = endY
+      }
+    })
+
+    // Stop drawing
+    window.addEventListener('mouseup', e => {
+      isDrawing = false
+    });
+
+
+    // ======== Setup touch events for mobile
+    canvas.addEventListener('touchstart', e => {
+      lastXY = getTouchXY(e)
+      let touch = e.touches[0]
+      // Simulate mouseevent
+      let mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      })
+      canvas.dispatchEvent(mouseEvent)
+    })
+
+    canvas.addEventListener("touchend", function (e) {
+      var mouseEvent = new MouseEvent("mouseup", {});
+      canvas.dispatchEvent(mouseEvent);
+    }, false);
+
+    canvas.addEventListener("touchmove", function (e) {
+      var touch = e.touches[0];
+      var mouseEvent = new MouseEvent("mousemove", {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      canvas.dispatchEvent(mouseEvent);
+    }, false);
+
+    // =========== Update Color
+    let $blue = document.getElementById('blue')
+    let $red = document.getElementById('red')
+
+    $blue.addEventListener('click', () => {
+      drawLine = makeDrawLine(ctx, 'blue')
+    })
+
+    $red.addEventListener('click', () => {
+      drawLine = makeDrawLine(ctx, 'red')
+    })
+
+    let backgroundImg;
+
+
+    // Clear canvas
+    let makeClearCanvas = (ctx, canvas) =>
+      () => ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    let clearCanvas = makeClearCanvas(ctx, canvas)
+
+    // ========== Clear drawing
+    let $clear = document.getElementById('clear')
+    $clear.addEventListener('click', () => {
+      clearCanvas()
+      if (backgroundImg) {
+        setBackgroundImg(backgroundImg)
+      }
+    })
+
+    // ======== Remove image
+    let $removeImage = document.getElementById('remove-image')
+    $removeImage.addEventListener('click', () => {
+      clearCanvas()
+      backgroundImg = null
+      document.getElementById('imageLoader').value = ''
+    })
+
+    // ======== Upload image set as background
+    let $imageLoader = document.getElementById('imageLoader');
+    imageLoader.addEventListener('change', handleImage, false);
+
+    let makeSetBackgroundImg = (ctx, canvas) =>
+      (img) => {
+        let scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+        var x = (canvas.width / 2) - (img.width / 2) * scale;
+        var y = (canvas.height / 2) - (img.height / 2) * scale;
+        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      }
+
+    let setBackgroundImg = makeSetBackgroundImg(ctx, canvas)
+
+    function handleImage(e) {
+      clearCanvas()
+      var reader = new FileReader();
+      reader.onload = function (event) {
+        var img = new Image();
+        img.onload = function () {
+          // update canvas background img
+          setBackgroundImg(img)
+          // cache current background img
+          backgroundImg = img;
+        }
+        img.src = event.target.result;
+      }
+      reader.readAsDataURL(e.target.files[0]);
+    }
+  </script>
+</body>
+
+</html>
