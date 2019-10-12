@@ -14,24 +14,40 @@
     #canvas {
       border: 1px solid black;
     }
+    body {
+      margin: 4.2px;
+    }
   </style>
 </head>
 
 <body>
-  <button id="clear">Clear</button>
-  <button id="blue">Blue</button>
-  <button id="red">Red</button>
-  <input type="file" id="imageLoader" name="imageLoader">
-  <button id="remove-image">Remove Image</button>
-  <br>
-  <canvas id="canvas" width="500" height="500"></canvas>
+  <div id="main">
+    <h1>Howie Painting App $$$</h1>
+    <button id="clear">Clear</button>
+    <button id="blue">Blue</button>
+    <button id="red">Red</button>
+    <input type="file" id="imageLoader" name="imageLoader">
+    <button id="remove-image">Remove Image</button>
+    <br>
+    <button id="download-image">Download Image</button>
+    <br>
+    <canvas id="canvas"></canvas>
+  </div>
+  
 
   <!-- TODO FIX MOBILE IMAGE UPLOAD ORIENTATION  -->
   <!-- https://medium.com/wassa/handle-image-rotation-on-mobile-266b7bd5a1e6 -->
+  <!-- Handle mobile image rotation -->
+  <script src="js/load-image-all.min.js"></script>
+
   <script>
     // ========= Simple Template
     let canvas = document.getElementById('canvas')
     let ctx = canvas.getContext('2d')
+
+    // set canvas dimensions
+    canvas.width = window.innerWidth - 10;
+    canvas.height = window.innerHeight / 1.5;
 
     // When true, moving the mouse draws on the canvas
     let isDrawing = false
@@ -143,6 +159,7 @@
 
     // ======== Setup touch events for mobile
     canvas.addEventListener('touchstart', e => {
+      e.preventDefault()
       lastXY = getTouchXY(e)
       let touch = e.touches[0]
       // Simulate mouseevent
@@ -154,11 +171,13 @@
     })
 
     canvas.addEventListener("touchend", function (e) {
+      e.preventDefault()
       var mouseEvent = new MouseEvent("mouseup", {});
       canvas.dispatchEvent(mouseEvent);
     }, false);
 
     canvas.addEventListener("touchmove", function (e) {
+      e.preventDefault()
       var touch = e.touches[0];
       var mouseEvent = new MouseEvent("mousemove", {
         clientX: touch.clientX,
@@ -221,19 +240,41 @@
 
     function handleImage(e) {
       clearCanvas()
-      var reader = new FileReader();
-      reader.onload = function (event) {
-        var img = new Image();
-        img.onload = function () {
-          // update canvas background img
+      // loadImage library to assist with mobile image rotation
+      loadImage(
+        e.target.files[0],
+        function(img){
           setBackgroundImg(img)
-          // cache current background img
-          backgroundImg = img;
+          backgroundImg = img
+          img.src = e.target.result
+        },{
+          orientation: true,
+          canvas: true
         }
-        img.src = event.target.result;
-      }
-      reader.readAsDataURL(e.target.files[0]);
+      )
+      // var reader = new FileReader();
+      // reader.onload = function (event) {
+      //   var img = new Image();
+      //   img.onload = function () {
+      //     // update canvas background img
+      //     setBackgroundImg(img)
+      //     // cache current background img
+      //     backgroundImg = img;
+      //   }
+      //   img.src = event.target.result;
+      // }
+      // reader.readAsDataURL(e.target.files[0]);
     }
+    // ==== Download image
+    let $downloadImage = document.getElementById('download-image')
+    $downloadImage.addEventListener('click', () => {
+      let data = canvas.toDataURL('image/png')
+      let a = document.createElement('a')
+      a.href = data
+      a.download = 'image.png'
+      a.click()
+    })
+
   </script>
 </body>
 
